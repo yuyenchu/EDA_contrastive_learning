@@ -30,17 +30,17 @@ class aug_export:
 class DataAugmenter():
     def __init__(self, augment_dict={}, prob=0.5):
         self.augmenters = [AUGMENTERS_DICT[k](**v) for k,v in augment_dict.items()]
-        self.prob = prob
+        self.prob = prob if isinstance(prob, list) else [prob]*len(self.augmenters)
         
-    def __call__(self, x):
-        for aug in self.augmenters:
-            if (self.prob > tf.random.uniform(maxval=1, shape=[1])):
-                x = tf.numpy_function(aug, [x], [tf.float32])[0]
+    def __call__(self, x, xl, xr):
+        for p, aug in zip(self.prob, self.augmenters):
+            if (p > tf.random.uniform(maxval=1, shape=[1])):
+                x = tf.numpy_function(aug, [x, xl, xr], [tf.float32])[0]
         return x
 
 @aug_export('LowPassFilter_Det')
 class LowPassFilterDeterministic():
-    def __init__(self, data_freq=4, highcut_hz=0.05):
+    def __init__(self, data_freq=4, highcut_hz=0.05, **kwargs):
         """
         Apply low pass filter to remove frequency bands >= highcut_hz
         :param data_freq: frequency of data to apply filter to (e.g., 4Hz for EDA)
@@ -50,7 +50,7 @@ class LowPassFilterDeterministic():
         self.highcut_hz = highcut_hz
         self.b, self.a = scipy.signal.butter(4, [highcut_hz], btype="lowpass", output="ba", fs=data_freq)
 
-    def __call__(self, x):
+    def __call__(self, x, *args):
         # print(x.shape)
         segment_filtered = scipy.signal.filtfilt(self.b, self.a, x, axis=0)
         return segment_filtered.astype(np.float32)
@@ -64,7 +64,7 @@ class GaussianNoiseDeterministic:
         """
         self.sigma_scale = sigma_scale
 
-    def __call__(self, x):
+    def __call__(self, x, *args):
         # x = np.squeeze(x, -1)
         mean_power_diff = np.mean(np.abs(x - np.mean(x)))
         noise_sigma = mean_power_diff * self.sigma_scale
@@ -84,7 +84,7 @@ class GaussianNoiseStochastic:
         self.sigma_scale_min = sigma_scale_min
         self.sigma_scale_max = sigma_scale_max
 
-    def __call__(self, x):
+    def __call__(self, x, *args):
         # sample sigma scale
         # x = np.squeeze(x, -1)
         sigma_scale = np.random.uniform(self.sigma_scale_min, self.sigma_scale_max)
@@ -111,5 +111,52 @@ class BandstopFilterDeterministic:
         self.Q = Q
         self.b, self.a = iirnotch(self.remove_freq, self.Q, fs=self.data_freq)
 
-    def __call__(self, x):
+    def __call__(self, x, *args):
         return filtfilt(self.b, self.a, x, axis=0).astype(np.float32)
+
+@aug_export('TimeShift_Det')
+class TimeShiftDeterministic:
+    """ Shifts the window left or right by a number of samples """
+    def __init__(self, shift_len=120):
+        self.shift_len = shift_len
+
+    def __call__(self, x, left_buffer, right_buffer):
+        # print(x.shape, left_buffer.shape, right_buffer.shape)
+        # drop nans from left and right buffer segment
+        l_len = np.bitwise_and.reduce(~np.isnan(left_buffer), axis=1).sum()
+        r_len = np.bitwise_and.reduce(~np.isnan(right_buffer), axis=1).sum()
+        signal = np.concatenate([left_buffer, x, right_buffer])
+        mask = np.bitwise_and.reduce(~np.isnan(signal), axis=1)
+        signal = signal[mask]
+        # sample shift to apply --- make sure not out-of-bounds!!
+        left_shift_len = min(self.shift_len, l_len)
+        right_shift_len = min(self.shift_len, r_len)
+        shift = np.random.choice([-left_shift_len, right_shift_len])  # choose whether to shift left or right in time
+        start_index = l_len + shift
+        x_trf = signal[start_index:start_index+len(x)]
+        return x_trf.astype(np.float32)
+
+@aug_export('TimeShift_Sto')
+class TimeShiftStochastic:
+    """ Shifts the window left or right by a number of samples """
+    def __init__(self, shift_len_min=120, shift_len_max=240):
+        self.shift_min = shift_len_min
+        self.shift_max = shift_len_max
+        self.shift_lens = np.arange(self.shift_min, self.shift_max, 1)
+
+    def __call__(self, x, left_buffer, right_buffer):
+        # drop nans from left and right buffer segment
+        l_len = np.bitwise_and.reduce(~np.isnan(left_buffer), axis=1).sum()
+        r_len = np.bitwise_and.reduce(~np.isnan(right_buffer), axis=1).sum()
+        signal = np.concatenate([left_buffer, x, right_buffer])
+        mask = np.bitwise_and.reduce(~np.isnan(signal), axis=1)
+        signal = signal[mask]
+        # sample shift len to apply
+        shift_len = np.random.choice(self.shift_lens)
+        # adjust so shift is in bounds & sample whether to apply it on left or right
+        left_shift_len = min(shift_len, l_len)
+        right_shift_len = min(shift_len, r_len)
+        shift = np.random.choice([-left_shift_len, right_shift_len])  # choose whether to shift left or right in time
+        start_index = l_len + shift
+        x_trf = signal[start_index:start_index+len(x)]
+        return x_trf.astype(np.float32)
