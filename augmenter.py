@@ -1,4 +1,13 @@
+import copy
+from sys import exit
+from functools import lru_cache
+
+import neurokit2 as nk
 import numpy as np
+import scipy
+from scipy.fft import fft, ifft
+from scipy.signal import iirnotch, iirpeak, filtfilt
+from scipy.interpolate import CubicSpline
 
 AUGMENTERS_DICT = {}
 
@@ -13,12 +22,21 @@ def register_internal_serializable(path, symbol):
 class aug_export:
     def __init__(self, path):
         self.path = path
-        print('init:', path)
-
+        
     def __call__(self, symbol):
-        print('call:', symbol)
         register_internal_serializable(self.path, symbol)
         return symbol
+
+class DataAugmenter():
+    def __init__(self, augment_dict={}, prob=0.5):
+        self.augmenters = [AUGMENTERS_DICT[k](**v) for k,v in augment_dict.items()]
+        self.prob = prob
+        
+    def __call__(self, x):
+        for aug in self.augmenters:
+            if (self.prob > tf.random.uniform(maxval=1, shape=[1])):
+                x = tf.numpy_function(aug, [x], [tf.float32])[0]
+        return x
 
 @aug_export('LowPassFilter_Det')
 class LowPassFilterDeterministic():

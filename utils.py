@@ -6,6 +6,8 @@ from tensorflow.data import Dataset
 from sklearn.model_selection import train_test_split
 from glob import glob
 
+from augmenter import DataAugmenter
+
 def get_dataset(data_path='./', batch_size=64, test_size=0.2, seed=42, unlabeled_aug=None, labeled_aug=None):
     unlabeled_eda = []
     labeled_eda = []
