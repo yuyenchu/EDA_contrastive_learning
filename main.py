@@ -37,10 +37,10 @@ if __name__=='__main__':
     labeled_aug = DataAugmenter(**aug_cfg.get('labeled_aug', {}))
 
     if (path.exists(args.dataset)):
-        unlabeled_train_ds, labeled_train_ds, test_ds = get_dataset(args.dataset, batch_size=args.batch)
+        unlabeled_train_ds, labeled_train_ds, test_ds = get_dataset(args.dataset, batch_size=args.batch, unlabeled_aug=unlabeled_aug, labeled_aug=labeled_aug)
     elif (USE_CLEARML):
         ds = Dataset.get(dataset_id=args.dataset)
-        unlabeled_train_ds, labeled_train_ds, test_ds = get_dataset(ds.get_local_copy(), batch_size=args.batch)
+        unlabeled_train_ds, labeled_train_ds, test_ds = get_dataset(ds.get_local_copy(), batch_size=args.batch, unlabeled_aug=unlabeled_aug, labeled_aug=labeled_aug)
     else:
         raise ValueError('dataset not valid:', args.dataset)
 
@@ -57,25 +57,28 @@ if __name__=='__main__':
                                                     verbose=1))
 
     # Contrastive pretraining
-    pretraining_model = ContrastiveModel(args.temp)
+    model = ContrastiveModel(args.temp)
 
-    pretraining_model.compile(
+    model.compile(
         optimizer=keras.optimizers.AdamW(args.lr),
         train_mode='contrastive',
     )
-    pretraining_history = pretraining_model.fit(
+    model.fit(
         unlabeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks
     )
 
-    pretraining_model.compile(
+    model.compile(
         optimizer=keras.optimizers.AdamW(args.lr),
         train_mode='prediction',
     )
-    predtraining_history = pretraining_model.fit(
+    history = model.fit(
         labeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks
     )
+
     print(
         "Maximal validation accuracy: {:.2f}%".format(
-            max(predtraining_history.history["val_p_acc"]) * 100
+            max(history.history["val_p_acc"]) * 100
         )
     )
+    model.load_weights('./model_ckpt.weights.h5')
+    model.save('model.keras')

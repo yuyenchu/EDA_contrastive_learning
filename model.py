@@ -1,12 +1,14 @@
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import ops
+from keras import saving
 
 from utils import build_encoder, build_projection_head, build_classification_head
 
+@saving.register_keras_serializable()
 class ContrastiveModel(keras.Model):
-    def __init__(self, temperature=0.1):
-        super().__init__()
+    def __init__(self, temperature=0.1, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         self.temperature = temperature
         self.encoder = build_encoder()
@@ -18,8 +20,13 @@ class ContrastiveModel(keras.Model):
         # self.encoder.summary()
         # self.projection_head.summary()
         # self.linear_probe.summary()
-        self.train_mode = None
+        self.train_mode = 'contrastive'
 
+    def call(self, inputs, training=False):
+        features = self.encoder(inputs, training=training)
+        out = self.linear_probe(features, training=training)
+        return out
+    
     def compile(self, optimizer, train_mode, **kwargs):
         super().compile(**kwargs)
 
@@ -67,7 +74,7 @@ class ContrastiveModel(keras.Model):
         return (loss_1_2 + loss_2_1) / 2
 
     def train_step(self, data):
-        if self.train_mode == 'contrastive':
+        if (self.train_mode == 'contrastive'):
             img1, img2 = data
             # paired unlabeled images are used
             with tf.GradientTape() as tape:
@@ -89,7 +96,7 @@ class ContrastiveModel(keras.Model):
             )
             self.contrastive_loss_tracker.update_state(contrastive_loss)
             return {m.name: m.result() for m in self.metrics[:3]}
-        elif self.train_mode == 'prediction':
+        elif (self.train_mode == 'prediction'):
             # Labels are only used in evalutation for an on-the-fly logistic regression
             imgs, labels = data
             with tf.GradientTape() as tape:

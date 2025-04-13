@@ -19,7 +19,7 @@ def get_dataset(data_path='./', seg_shape=(240,1), batch_size=64, test_size=0.2,
     nan = np.full((1,*seg_shape), np.nan)
     labels = []
     start = time.time()
-    for fn in glob(os.path.join(data_path, '*.h5')):
+    for fn in glob(os.path.join(data_path, 'S*.h5')):
         f = h5py.File(fn, 'r')
         unlabeled_eda = np.concat([unlabeled_eda, f['eda_unlabel'][:]], axis=0, dtype=np.float32)
         unlabeled_lb = np.concat([unlabeled_lb, nan, f['eda_unlabel'][:-1]], axis=0, dtype=np.float32)
@@ -100,7 +100,7 @@ def build_classification_head():
     return keras.Sequential(
         [
             layers.Input((64,)),
-            layers.Dense(1, activation="relu", kernel_initializer=initializer),
+            layers.Dense(1, activation="sigmoid", kernel_initializer=initializer),
         ],
         name="classification_head",
     )
