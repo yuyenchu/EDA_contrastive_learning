@@ -33,9 +33,11 @@ class DataAugmenter():
         self.prob = prob if isinstance(prob, list) else [prob]*len(self.augmenters)
         
     def __call__(self, x, xl, xr):
+        shape = tf.shape(x)
         for p, aug in zip(self.prob, self.augmenters):
             if (p > tf.random.uniform(maxval=1, shape=[1])):
                 x = tf.numpy_function(aug, [x, xl, xr], [tf.float32])[0]
+                x = tf.reshape(x, shape)
         return x
 
 @aug_export('LowPassFilter_Det')

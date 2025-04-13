@@ -54,5 +54,4 @@ def get_dataset(data_path='./', seg_shape=(240,1), batch_size=64, test_size=0.2,
         .prefetch(buffer_size=tf.data.AUTOTUNE)
     print('ds build time:', time.time()-start)
     
-    return unlabeled_train_ds, labeled_train_ds, labeled_test_ds#, (unlabeled_eda, unlabeled_lb, unlabeled_rb)
-unlabeled_train_ds, labeled_train_ds, test_ds, *_ = get_dataset(unlabeled_aug=da)
+    return unlabeled_train_ds, labeled_train_ds, labeled_test_ds
