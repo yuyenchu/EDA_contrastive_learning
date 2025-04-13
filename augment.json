@@ -1,0 +1,15 @@
+{
+    "unlabeled_aug": {
+        "augment_dict": {
+            "TimeShift_Sto": {"shift_len_min": 20, "shift_len_max": 60},
+            "GaussianNoise_Det": {"sigma_scale": 0.1}
+        }, 
+        "prob": [0.75, 1]
+    }, 
+    "labeled_aug": {
+        "augment_dict": {
+            "GaussianNoise_Det": {"sigma_scale": 0.2}
+        }, 
+        "prob": [1]
+    }
+}

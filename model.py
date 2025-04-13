@@ -20,13 +20,12 @@ class ContrastiveModel(keras.Model):
         # self.linear_probe.summary()
         self.train_mode = None
 
-    def compile(self, contrastive_optimizer, probe_optimizer, train_mode, **kwargs):
+    def compile(self, optimizer, train_mode, **kwargs):
         super().compile(**kwargs)
 
         assert train_mode in ('contrastive', 'prediction')
         self.train_mode = train_mode
-        self.contrastive_optimizer = contrastive_optimizer
-        self.probe_optimizer = probe_optimizer
+        self.optimizer = optimizer
 
         # self.contrastive_loss will be defined as a method
         self.probe_loss = keras.losses.BinaryCrossentropy(from_logits=True)
@@ -53,16 +52,10 @@ class ContrastiveModel(keras.Model):
         b = tf.shape(projections_1)[0]
         p1 = ops.normalize(projections_1, axis=-1)
         p2 = ops.normalize(projections_2, axis=-1)
-        p1 = tf.repeat(tf.expand_dims(p1,0),b,0)
-        p2 = tf.repeat(tf.expand_dims(p2,1),b,1)
-        # similarities = (
-        #     tf.math.exp(ops.matmul(projections_1, ops.transpose(projections_2)) / self.temperature)
-        # )
         similarities = (
-            tf.math.exp(-keras.losses.cosine_similarity(p1, p2) / self.temperature)
+            tf.math.exp(ops.matmul(p1, ops.transpose(p2)) / self.temperature)
         )
         diag = ops.diag(similarities)
-        n = tf.cast(b*(b-1), tf.float32)
         # symmetrized temperature-scaled similarities are used
         loss_1_2 = -tf.reduce_mean(tf.math.log(diag/(tf.reduce_sum(similarities,axis=0)-diag)))
         loss_2_1 = -tf.reduce_mean(tf.math.log(diag/(tf.reduce_sum(similarities,axis=1)-diag)))
@@ -88,7 +81,7 @@ class ContrastiveModel(keras.Model):
                 contrastive_loss,
                 self.encoder.trainable_weights + self.projection_head.trainable_weights,
             )
-            self.contrastive_optimizer.apply_gradients(
+            self.optimizer.apply_gradients(
                 zip(
                     gradients,
                     self.encoder.trainable_weights + self.projection_head.trainable_weights,
@@ -106,7 +99,7 @@ class ContrastiveModel(keras.Model):
                 class_logits = self.linear_probe(features, training=True)
                 probe_loss = self.probe_loss(labels, class_logits)
             gradients = tape.gradient(probe_loss, self.linear_probe.trainable_weights)
-            self.probe_optimizer.apply_gradients(
+            self.optimizer.apply_gradients(
                 zip(gradients, self.linear_probe.trainable_weights)
             )
             self.probe_loss_tracker.update_state(probe_loss)

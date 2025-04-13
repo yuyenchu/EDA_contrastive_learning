@@ -7,7 +7,6 @@ import pickle
 from glob import glob
 from os import path
 from tqdm import tqdm
-from clearml import Task, TaskTypes, Dataset
 
 LABEL_SAMPLE_RATE = 700
 EDA_SAMPLE_RATE = 4
@@ -56,6 +55,7 @@ def process_subject(subject_path, dest_path, size, overlap, logger):
 
 if __name__=='__main__':
     if (USE_CLEARML):
+        from clearml import Task, TaskTypes, Dataset
         task = Task.init('EDA_contrastive', 'dataset_preprocess', task_type=TaskTypes.data_processing)
         task.set_user_properties(LABEL_SAMPLE_RATE=LABEL_SAMPLE_RATE, EDA_SAMPLE_RATE=EDA_SAMPLE_RATE)
         logger = task.get_logger()
@@ -67,16 +67,15 @@ if __name__=='__main__':
     subjects.sort(key=lambda x:int(path.splitext(path.basename(x))[0].replace('S','')))
     print(subjects)
     if (len(subjects)>0):
-        if (USE_CLEARML):
-            ds = Dataset.create('WESAD_EDA', 'EDA_contrastive', ['WESAD', 'EDA'])
+        ds = Dataset.create('WESAD_EDA', 'EDA_contrastive', ['WESAD', 'EDA']) if (USE_CLEARML) else None
         for i, s in enumerate(tqdm(subjects)):
             if (path.isfile(s)):
                 saved_path, unlabel_shape, label_shape = process_subject(s, args.dest, args.size, args.overlap, logger)
-                if (USE_CLEARML and saved_path and path.isfile(saved_path)):
+                if (ds and saved_path and path.isfile(saved_path)):
                     ds.add_files(saved_path)
                     logger.report_scalar('data_length', 'labelled', label_shape[0], i)
                     logger.report_scalar('data_length', 'unlabelled', unlabel_shape[0], i)
-        if (USE_CLEARML):
+        if (ds):
             ds.upload()
             ds.finalize()
     else:
