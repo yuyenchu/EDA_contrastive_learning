@@ -55,3 +55,49 @@ def get_dataset(data_path='./', seg_shape=(240,1), batch_size=64, test_size=0.2,
     print('ds build time:', time.time()-start)
     
     return unlabeled_train_ds, labeled_train_ds, labeled_test_ds
+
+def build_encoder():
+    initializer = keras.initializers.RandomNormal(mean=0.0, stddev=1.0)
+    return keras.Sequential(
+        [
+            layers.Input((240,1)),
+            layers.Conv1D(4, kernel_size=7, strides=1, kernel_initializer=initializer),
+            layers.BatchNormalization(),
+            layers.Activation('relu'),
+            layers.MaxPool1D(),
+            layers.Dropout(0.1),
+            layers.Conv1D(16, kernel_size=7, strides=1, kernel_initializer=initializer),
+            layers.BatchNormalization(),
+            layers.Activation('relu'),
+            layers.MaxPool1D(),
+            layers.Dropout(0.1),
+            layers.Conv1D(32, kernel_size=7, strides=1, kernel_initializer=initializer),
+            layers.BatchNormalization(),
+            layers.Activation('relu'),
+            layers.MaxPool1D(),
+            layers.Dropout(0.1),
+            layers.Flatten(),
+            layers.Dense(64, activation="relu", kernel_initializer=initializer),
+        ],
+        name="encoder",
+    )
+
+def build_projection_head():
+    initializer = keras.initializers.RandomNormal(mean=0.0, stddev=1.0)
+    return keras.Sequential(
+        [
+            layers.Input((64,)),
+            layers.Dense(32, activation="relu", kernel_initializer=initializer),
+        ],
+        name="projection_head",
+    )
+
+def build_classification_head():
+    initializer = keras.initializers.RandomNormal(mean=0.0, stddev=1.0)
+    return keras.Sequential(
+        [
+            layers.Input((64,)),
+            layers.Dense(1, activation="relu", kernel_initializer=initializer),
+        ],
+        name="classification_head",
+    )
