@@ -33,10 +33,11 @@ def process_subject(subject_path, dest_path, size, overlap, logger):
     synced_label = label[selections]
     assert synced_label.shape[0] == eda.shape[0] , "synced labels and EDA are not aligned"
 
-    l = eda.shape[0]/size+1
+    l = eda.shape[0]/(size-overlap)+1
     m = np.sum(np.meshgrid(np.arange(size), np.arange(l)*size-np.arange(l)*overlap), axis=0)
     m = (m[m[:,-1]<eda.shape[0]]).astype(np.int32)
     eda_segs = eda[m]
+    # print(eda_segs.shape, l, m)
     label_segs = synced_label[m]
     label_valid = np.apply_along_axis(lambda x: (x==x[0]).all(), 1, label_segs)
 
@@ -70,7 +71,7 @@ if __name__=='__main__':
         ds = Dataset.create('WESAD_EDA', 'EDA_contrastive', ['WESAD', 'EDA']) if (USE_CLEARML) else None
         for i, s in enumerate(tqdm(subjects)):
             if (path.isfile(s)):
-                saved_path, unlabel_shape, label_shape = process_subject(s, args.dest, args.size, args.overlap, logger)
+                saved_path, unlabel_shape, label_shape = process_subject(s, args.dest, args.size, args.overlap, logger if (USE_CLEARML) else None)
                 if (ds and saved_path and path.isfile(saved_path)):
                     ds.add_files(saved_path)
                     logger.report_scalar('data_length', 'labelled', label_shape[0], i)

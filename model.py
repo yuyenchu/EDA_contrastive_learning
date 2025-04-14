@@ -59,18 +59,19 @@ class ContrastiveModel(keras.Model):
         b = tf.shape(projections_1)[0]
         p1 = ops.normalize(projections_1, axis=-1)
         p2 = ops.normalize(projections_2, axis=-1)
-        similarities = (
-            tf.math.exp(ops.matmul(p1, ops.transpose(p2)) / self.temperature)
-        )
+        similarities = ops.matmul(p1, ops.transpose(p2))
+        diag = ops.diag(similarities)
+        self.contrastive_sim.update_state(tf.reduce_mean(diag))
+        self.contrastive_dsim.update_state((tf.reduce_sum(similarities,axis=0)-diag)/tf.cast(b-1, tf.float32))
+        self.contrastive_dsim.update_state((tf.reduce_sum(similarities,axis=1)-diag)/tf.cast(b-1, tf.float32))
+
+        similarities = (tf.math.exp(similarities) / self.temperature)
         diag = ops.diag(similarities)
         # symmetrized temperature-scaled similarities are used
         loss_1_2 = -tf.reduce_mean(tf.math.log(diag/(tf.reduce_sum(similarities,axis=0)-diag)))
         loss_2_1 = -tf.reduce_mean(tf.math.log(diag/(tf.reduce_sum(similarities,axis=1)-diag)))
         # The similarity between the representations of two augmented views of the
         # same image should be higher than their similarity with other views
-        self.contrastive_sim.update_state(tf.reduce_mean(diag))
-        self.contrastive_dsim.update_state((tf.reduce_sum(similarities,axis=0)-diag)/tf.cast(b-1, tf.float32))
-        self.contrastive_dsim.update_state((tf.reduce_sum(similarities,axis=1)-diag)/tf.cast(b-1, tf.float32))
         return (loss_1_2 + loss_2_1) / 2
 
     def train_step(self, data):

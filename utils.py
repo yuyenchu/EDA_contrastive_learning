@@ -30,8 +30,9 @@ def get_dataset(data_path='./', seg_shape=(240,1), batch_size=64, test_size=0.2,
         labeled_rb = np.concat([labeled_rb, f['eda'][1:], nan], axis=0, dtype=np.float32)
         
         labels += f['label']
+    print('unlabeled shape:', unlabeled_eda.shape, ', labeled shape:', labeled_eda.shape)
     print('gather time:', time.time()-start)
-
+    
     start = time.time()
     labels = (np.array(labels)==2).astype(np.int32)
     X_train, X_test, Xl_train, _, Xr_train, _, y_train, y_test = train_test_split(labeled_eda, labeled_lb, labeled_rb, labels, test_size=test_size, random_state=seed)
@@ -42,7 +43,7 @@ def get_dataset(data_path='./', seg_shape=(240,1), batch_size=64, test_size=0.2,
     else:
         unlabeled_train_ds = Dataset.from_tensor_slices(unlabeled_eda)
         unlabeled_train_ds = Dataset.zip(unlabeled_train_ds, unlabeled_train_ds)
-    unlabeled_train_ds = unlabeled_train_ds.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
+    unlabeled_train_ds = unlabeled_train_ds.batch(batch_size).shuffle(10*batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
     
     if (labeled_aug):
         labeled_train_ds = Dataset.from_tensor_slices((X_train, Xl_train, Xr_train))
@@ -50,7 +51,7 @@ def get_dataset(data_path='./', seg_shape=(240,1), batch_size=64, test_size=0.2,
         labeled_train_ds = Dataset.zip(labeled_train_ds, Dataset.from_tensor_slices(y_train))
     else:
         labeled_train_ds = Dataset.from_tensor_slices((X_train, y_train))
-    labeled_train_ds = labeled_train_ds.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
+    labeled_train_ds = labeled_train_ds.batch(batch_size).shuffle(10*batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
     
     labeled_test_ds = Dataset.from_tensor_slices((X_test, y_test)) \
         .batch(batch_size) \
