@@ -79,6 +79,7 @@ if __name__=='__main__':
         if (ds):
             ds.upload()
             ds.finalize()
+            print('==> Dataset id:', ds.id)
     else:
         print(f'no subject found in path: {args.path}')
 

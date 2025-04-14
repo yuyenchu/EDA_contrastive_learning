@@ -1,14 +1,24 @@
 import argparse
+import gc
 import json
 import numpy as np
+import tensorflow as tf
 
 from glob import glob
 from os import path
 from tqdm import tqdm
 from tensorflow import keras
+from sklearn.metrics import (
+    confusion_matrix,
+    precision_score,
+    recall_score,
+    accuracy_score,
+    f1_score,
+    roc_auc_score,
+)
 
 from model import ContrastiveModel
-from utils import get_dataset
+from utils import get_dataset, GarbageCollectionCallback, PrintMemoryCallback
 from augmenter import DataAugmenter
 
 USE_CLEARML = True
@@ -47,14 +57,15 @@ if __name__=='__main__':
     else:
         raise ValueError('dataset not valid:', args.dataset)
 
-    if (path.exists(args.model) and path.isfile(args.model)):
-        pretrain_path = args.model
-    elif (USE_CLEARML):
-        pretrain_path = Task.get_task(args.model).artifacts['checkpoint'].get_local_copy()
-    else:
+    try:
+        if (path.exists(args.model) and path.isfile(args.model)):
+            pretrain_path = args.model
+        elif (USE_CLEARML):
+            pretrain_path = Task.get_task(args.model).artifacts['checkpoint'].get_local_copy()
+    except:
         pretrain_path = None
         print('[!Warning] model ckpt path not valid:', args.model)
-    if (pretrain_path and pretrain_path.endswith('.weights.h5'))
+    if (pretrain_path and pretrain_path.endswith('.weights.h5')):
         try:
             model.load_weights(pretrain_path)
             print('model weight load success')
@@ -63,6 +74,8 @@ if __name__=='__main__':
 
     ckpt_path = './model_ckpt.weights.h5'
     callbacks = []
+    # callbacks.append(PrintMemoryCallback(672))
+    callbacks.append(GarbageCollectionCallback())
     callbacks.append(keras.callbacks.TensorBoard(log_dir = './logs',
                                                     histogram_freq = 1,
                                                     profile_batch = '200,220'))
@@ -75,6 +88,7 @@ if __name__=='__main__':
                                                     verbose=1))
 
     # Contrastive pretraining
+    print('='*20, 'training start' , '='*20)
     model = ContrastiveModel(args.temp)
 
     model.compile(
@@ -94,12 +108,39 @@ if __name__=='__main__':
     )
 
     print(
-        "Maximal validation accuracy: {:.2f}%".format(
-            max(history.history["val_p_acc"]) * 100
+        'Best validation accuracy: {:.2f}%, loss {:.3f}'.format(
+            max(history.history['val_p_acc']) * 100,
+            max(history.history['val_p_loss'])
         )
     )
     model.load_weights(ckpt_path)
     model.save('model.keras')
+    del unlabeled_train_ds
+    del labeled_train_ds
+    gc.collect()
+
+    print('='*20, 'testing start' , '='*20)
+    y_pred_score = model.predict(test_ds)
+    y_pred = y_pred_score>0.5
+    y_true = [l for d,l in test_ds.unbatch().as_numpy_iterator()]
+    del test_ds
+    gc.collect()
+
+    cm = confusion_matrix(y_true, y_pred)
+    print('confusion matrix:')
+    print(cm)
+    p, r, acc, f1, auc = (
+        precision_score(y_true, y_pred),
+        recall_score(y_true, y_pred),
+        accuracy_score(y_true, y_pred),
+        f1_score(y_true, y_pred),
+        roc_auc_score(y_true, y_pred_score)
+    )
+    print('precision:', p)
+    print('recall:', r)
+    print('accuracy:', acc)
+    print('f1:', f1)
+    print('roc_auc:', auc)
 
     if (USE_CLEARML):
         task.upload_artifact('checkpoint', ckpt_path)
