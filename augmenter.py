@@ -29,8 +29,8 @@ class aug_export:
         return symbol
 
 class DataAugmenter():
-    def __init__(self, augment_dict={}, prob=0.5):
-        self.augmenters = [AUGMENTERS_DICT[k](**v) for k,v in augment_dict.items()]
+    def __init__(self, augment_cfg=[], prob=0.5):
+        self.augmenters = [AUGMENTERS_DICT[k](**v) for k,v in augment_cfg]
         self.prob = prob if isinstance(prob, list) else [prob]*len(self.augmenters)
         
     def __call__(self, x, xl, xr):
