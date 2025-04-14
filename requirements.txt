@@ -1,0 +1,10 @@
+h5py == 3.12.1
+keras == 3.6.0
+matplotlib == 3.9.3
+neurokit2 == 0.2.10
+numpy == 2.0.2
+psutil == 5.9.8
+scikit_learn == 1.6.0
+scipy == 1.14.1
+tensorflow == 2.18.0
+tqdm == 4.67.1
