@@ -1,4 +1,5 @@
 import copy
+import inspect
 import tensorflow as tf
 import neurokit2 as nk
 import numpy as np
@@ -11,14 +12,21 @@ from scipy.signal import iirnotch, iirpeak, filtfilt
 from scipy.interpolate import CubicSpline
 
 AUGMENTERS_DICT = {}
+AUGMENTERS_PARAMS = {}
 
 def register_internal_serializable(path, symbol):
-    global AUGMENTERS_DICT
+    global AUGMENTERS_DICT, AUGMENTERS_PARAMS
     if isinstance(path, (list, tuple)):
         name = path[0]
     else:
         name = path
+    signature = inspect.signature(symbol)
+    params = {
+        k: v.default if v.default is not inspect.Parameter.empty else None
+        for k, v in signature.parameters.items()
+    }
     AUGMENTERS_DICT[name] = symbol
+    AUGMENTERS_PARAMS[name] = params
     
 class aug_export:
     def __init__(self, path):
@@ -163,3 +171,9 @@ class TimeShiftStochastic:
         start_index = l_len + shift
         x_trf = signal[start_index:start_index+len(x)]
         return x_trf.astype(np.float32)
+
+if __name__=='__main__':
+    import json
+    with open('augment_params.json', 'w') as f:
+        augment_cfg = {'augment_cfg': [[k, v]for k,v in AUGMENTERS_PARAMS.items()]}
+        json.dump(augment_cfg, f, indent=4)

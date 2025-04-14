@@ -1,0 +1,46 @@
+{
+    "augment_cfg": [
+        [
+            "LowPassFilter_Det",
+            {
+                "data_freq": 4,
+                "highcut_hz": 0.05,
+                "kwargs": null
+            }
+        ],
+        [
+            "GaussianNoise_Det",
+            {
+                "sigma_scale": 0.1
+            }
+        ],
+        [
+            "GaussianNoise_Sto",
+            {
+                "sigma_scale_min": 0.0,
+                "sigma_scale_max": 0.5
+            }
+        ],
+        [
+            "BandstopFilter_Det",
+            {
+                "data_freq": 4,
+                "remove_freq": 0.25,
+                "Q": 0.707
+            }
+        ],
+        [
+            "TimeShift_Det",
+            {
+                "shift_len": 120
+            }
+        ],
+        [
+            "TimeShift_Sto",
+            {
+                "shift_len_min": 120,
+                "shift_len_max": 240
+            }
+        ]
+    ]
+}
