@@ -191,15 +191,20 @@ def check_memory_leak(ds):
             break
 
 if __name__=='__main__':
+    import argparse
     import json
     from augmenter import DataAugmenter
+
+    parser = argparse.ArgumentParser(description='options for training')
+    parser.add_argument('-d', '--dataset',  help='dataset path', type=str, default='./ds')
+    args = parser.parse_args()  
 
     print('==> testing ds memory leak')
     with open('augment.json', 'r') as f:
         aug_cfg = json.load(f)
     unlabeled_aug = DataAugmenter(**aug_cfg.get('unlabeled_aug', {}))
     labeled_aug = DataAugmenter(**aug_cfg.get('labeled_aug', {}))
-    ds1, ds2, ds3 = get_dataset('./ds')
+    ds1, ds2, ds3 = get_dataset(args.dataset)
 
     print('='*20, 'testing ds1', '='*20)
     check_memory_leak(ds1)
