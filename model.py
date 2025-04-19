@@ -1,11 +1,11 @@
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import ops
-from keras import saving
+# from tensorflow.keras import ops
+# from keras import saving
 
 from utils import build_encoder, build_projection_head, build_classification_head
 
-@saving.register_keras_serializable()
+# @saving.register_keras_serializable()
 class ContrastiveModel(keras.Model):
     def __init__(self, temperature=0.1, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,9 +37,9 @@ class ContrastiveModel(keras.Model):
         # self.contrastive_loss will be defined as a method
         self.probe_loss = keras.losses.BinaryCrossentropy()
 
-        self.contrastive_loss_tracker = keras.metrics.Mean(name="c_loss")
-        self.contrastive_sim = keras.metrics.Mean(name="c_sim")
-        self.contrastive_dsim = keras.metrics.Mean(name="c_dsim")
+        self.contrastive_loss_tracker = keras.metrics.Mean(name="c_loss") # infofce loss
+        self.contrastive_sim = keras.metrics.Mean(name="c_sim") # average similarty score, should apporoach 1
+        self.contrastive_dsim = keras.metrics.Mean(name="c_dsim") # average dissimilarty score, should apporoach 0
         self.probe_loss_tracker = keras.metrics.Mean(name="p_loss")
         self.probe_accuracy = keras.metrics.BinaryAccuracy(name="p_acc")
 
@@ -57,16 +57,16 @@ class ContrastiveModel(keras.Model):
         # InfoNCE loss (information noise-contrastive estimation)
         # Cosine similarity: the dot product of the l2-normalized feature vectors
         b = tf.shape(projections_1)[0]
-        p1 = ops.normalize(projections_1, axis=-1)
-        p2 = ops.normalize(projections_2, axis=-1)
-        similarities = ops.matmul(p1, ops.transpose(p2))
-        diag = ops.diag(similarities)
+        p1 = tf.math.l2_normalize(projections_1, axis=-1)
+        p2 = tf.math.l2_normalize(projections_2, axis=-1)
+        similarities = tf.linalg.matmul(p1, p2, transpose_b=True)
+        diag = tf.linalg.tensor_diag_part(similarities)
         self.contrastive_sim.update_state(tf.reduce_mean(diag))
         self.contrastive_dsim.update_state((tf.reduce_sum(similarities,axis=0)-diag)/tf.cast(b-1, tf.float32))
         self.contrastive_dsim.update_state((tf.reduce_sum(similarities,axis=1)-diag)/tf.cast(b-1, tf.float32))
 
         similarities = (tf.math.exp(similarities) / self.temperature)
-        diag = ops.diag(similarities)
+        diag = tf.linalg.tensor_diag_part(similarities)
         # symmetrized temperature-scaled similarities are used
         loss_1_2 = -tf.reduce_mean(tf.math.log(diag/(tf.reduce_sum(similarities,axis=0)-diag)))
         loss_2_1 = -tf.reduce_mean(tf.math.log(diag/(tf.reduce_sum(similarities,axis=1)-diag)))

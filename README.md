@@ -10,9 +10,15 @@ pip install -r requirements.txt
 ```
 pip install clearml
 ```
+**[NOTE]** If using tensorflow>=2.16.0 / keras>=3.0.0, uncomment following lines in `model.py`
+```
+# from keras import saving
+...
+# @saving.register_keras_serializable()
+````
 
 ## Setup config
-1. Edit `augment.json` for labeled and unlabled data sugmentation, for functions and params, reference `augment_params.json`
+1. Edit `augment.json` for labeled and unlabled data augmentation, for functions and params, reference `augment_params.json`
 2. Edit `USE_CLEARML` in `main.py` and `preprocessing.py` for using clearml or not
 3. (Optional) If using clearml, run following command to config for your credentials
     ```
