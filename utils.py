@@ -77,20 +77,23 @@ def get_dataset(data_path='./', seg_shape=(240,1), batch_size=64, test_size=0.2,
     start = time.time()
     for fn in glob(os.path.join(data_path, 'S*.h5')):
         f = h5py.File(fn, 'r')
-        unlabeled_eda = np.concat([unlabeled_eda, f['eda_unlabel'][:]], axis=0, dtype=np.float32)
-        unlabeled_lb = np.concat([unlabeled_lb, nan, f['eda_unlabel'][:-1]], axis=0, dtype=np.float32)
-        unlabeled_rb = np.concat([unlabeled_rb, f['eda_unlabel'][1:], nan], axis=0, dtype=np.float32)
+        unlabeled_eda = np.concatenate([unlabeled_eda, f['eda_unlabel'][:]], axis=0, dtype=np.float32)
+        unlabeled_lb = np.concatenate([unlabeled_lb, nan, f['eda_unlabel'][:-1]], axis=0, dtype=np.float32)
+        unlabeled_rb = np.concatenate([unlabeled_rb, f['eda_unlabel'][1:], nan], axis=0, dtype=np.float32)
 
-        labeled_eda = np.concat([labeled_eda, f['eda'][:]], axis=0, dtype=np.float32)
-        labeled_lb = np.concat([labeled_lb, nan, f['eda'][:-1]], axis=0, dtype=np.float32)
-        labeled_rb = np.concat([labeled_rb, f['eda'][1:], nan], axis=0, dtype=np.float32)
+        labeled_eda = np.concatenate([labeled_eda, f['eda'][:]], axis=0, dtype=np.float32)
+        labeled_lb = np.concatenate([labeled_lb, nan, f['eda'][:-1]], axis=0, dtype=np.float32)
+        labeled_rb = np.concatenate([labeled_rb, f['eda'][1:], nan], axis=0, dtype=np.float32)
         
         labels += f['label']
-    print('unlabeled shape:', unlabeled_eda.shape, ', labeled shape:', labeled_eda.shape)
     print('gather time:', time.time()-start)
     
     start = time.time()
-    labels = (np.array(labels)==2).astype(np.int32)
+    labels = np.array(labels)
+    labels_mask = np.in1d(labels, [1,2])
+    labels, labeled_eda, labeled_lb, labeled_rb = labels[labels_mask], labeled_eda[labels_mask], labeled_lb[labels_mask], labeled_rb[labels_mask]
+    labels = (labels==2).astype(np.int32)
+    print('unlabeled shape:', unlabeled_eda.shape, ', labeled shape:', labeled_eda.shape)
     unlabeled_eda, unlabeled_lb, unlabeled_rb = shuffle(unlabeled_eda, unlabeled_lb, unlabeled_rb, random_state=seed)
     X_train, X_test, Xl_train, _, Xr_train, _, y_train, y_test = train_test_split(labeled_eda, labeled_lb, labeled_rb, labels, test_size=test_size, random_state=seed)
     # # Stop magic stuff that eats up RAM:
