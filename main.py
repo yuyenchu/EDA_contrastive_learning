@@ -21,7 +21,7 @@ from model import ContrastiveModel
 from utils import get_dataset, GarbageCollectionCallback, PrintMemoryCallback
 from augmenter import DataAugmenter
 
-USE_CLEARML = True
+USE_CLEARML = False
 print('tensorflow ==', tf.__version__)
 print(tf.config.list_physical_devices())
 

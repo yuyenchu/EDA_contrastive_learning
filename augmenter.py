@@ -13,9 +13,10 @@ from scipy.interpolate import CubicSpline
 
 AUGMENTERS_DICT = {}
 AUGMENTERS_PARAMS = {}
+AUGMENTERS_HPS = {}
 
 def register_internal_serializable(path, symbol):
-    global AUGMENTERS_DICT, AUGMENTERS_PARAMS
+    global AUGMENTERS_DICT, AUGMENTERS_PARAMS, AUGMENTERS_HPS
     if isinstance(path, (list, tuple)):
         name = path[0]
     else:
@@ -27,6 +28,7 @@ def register_internal_serializable(path, symbol):
     }
     AUGMENTERS_DICT[name] = symbol
     AUGMENTERS_PARAMS[name] = params
+    AUGMENTERS_HPS[name] = symbol.hp
     
 class aug_export:
     def __init__(self, path):
@@ -38,7 +40,7 @@ class aug_export:
 
 class DataAugmenter():
     def __init__(self, augment_cfg=[], prob=0.5):
-        self.augmenters = [AUGMENTERS_DICT[k](**v) for k,v in augment_cfg]
+        self.augmenters = [AUGMENTERS_DICT[k](**v) for k,v,*_ in augment_cfg]
         self.prob = prob if isinstance(prob, list) else [prob]*len(self.augmenters)
         
     def __call__(self, x, xl, xr):
@@ -51,7 +53,10 @@ class DataAugmenter():
 
 @aug_export('LowPassFilter_Det')
 class LowPassFilterDeterministic():
-    def __init__(self, data_freq=4, highcut_hz=0.05, **kwargs):
+    hp = {
+        'highcut_hz': (0.05, 0.1)
+    }
+    def __init__(self, data_freq=4, highcut_hz=0.05):
         """
         Apply low pass filter to remove frequency bands >= highcut_hz
         :param data_freq: frequency of data to apply filter to (e.g., 4Hz for EDA)
@@ -68,6 +73,9 @@ class LowPassFilterDeterministic():
 
 @aug_export('GaussianNoise_Det')
 class GaussianNoiseDeterministic:
+    hp = {
+        'sigma_scale': (0, 1.5)
+    }
     def __init__(self, sigma_scale=0.1):
         """
         :param sigma_scale: factor to use in computing sigma parameter for noise distribution
@@ -85,6 +93,10 @@ class GaussianNoiseDeterministic:
 
 @aug_export('GaussianNoise_Sto')
 class GaussianNoiseStochastic:
+    hp = {
+        'sigma_scale_min': (0.0, 0.5),
+        'sigma_scale_max': (0.5, 1.5)
+    }
     def __init__(self, sigma_scale_min=0.0, sigma_scale_max=0.5):
         """
         :param sigma_scale_min: min factor to use in computing sigma parameter for noise distribution
@@ -107,6 +119,9 @@ class GaussianNoiseStochastic:
 
 @aug_export('BandstopFilter_Det')
 class BandstopFilterDeterministic:
+    hp = {
+        'remove_freq': (0.1, 1.0)
+    }
     def __init__(self, data_freq=4, remove_freq=0.25, Q=0.707):
         """
         Selects frequency band to remove.
@@ -127,6 +142,9 @@ class BandstopFilterDeterministic:
 
 @aug_export('TimeShift_Det')
 class TimeShiftDeterministic:
+    hp = {
+        'shift_len': (1,200)
+    }
     """ Shifts the window left or right by a number of samples """
     def __init__(self, shift_len=120):
         self.shift_len = shift_len
@@ -149,6 +167,10 @@ class TimeShiftDeterministic:
 
 @aug_export('TimeShift_Sto')
 class TimeShiftStochastic:
+    hp = {
+        'shift_min': (0,100),
+        'shift_max': (100,239)
+    }
     """ Shifts the window left or right by a number of samples """
     def __init__(self, shift_len_min=120, shift_len_max=240):
         self.shift_min = shift_len_min
@@ -175,5 +197,5 @@ class TimeShiftStochastic:
 if __name__=='__main__':
     import json
     with open('augment_params.json', 'w') as f:
-        augment_cfg = {'augment_cfg': [[k, v]for k,v in AUGMENTERS_PARAMS.items()]}
+        augment_cfg = {'augment_cfg': [[k, v, AUGMENTERS_HPS[k]]for k,v in AUGMENTERS_PARAMS.items()]}
         json.dump(augment_cfg, f, indent=4)

@@ -4,14 +4,25 @@
             "LowPassFilter_Det",
             {
                 "data_freq": 4,
-                "highcut_hz": 0.05,
-                "kwargs": null
+                "highcut_hz": 0.05
+            },
+            {
+                "highcut_hz": [
+                    0.05,
+                    0.1
+                ]
             }
         ],
         [
             "GaussianNoise_Det",
             {
                 "sigma_scale": 0.1
+            },
+            {
+                "sigma_scale": [
+                    0,
+                    1.5
+                ]
             }
         ],
         [
@@ -19,6 +30,16 @@
             {
                 "sigma_scale_min": 0.0,
                 "sigma_scale_max": 0.5
+            },
+            {
+                "sigma_scale_min": [
+                    0.0,
+                    0.5
+                ],
+                "sigma_scale_max": [
+                    0.5,
+                    1.5
+                ]
             }
         ],
         [
@@ -27,12 +48,24 @@
                 "data_freq": 4,
                 "remove_freq": 0.25,
                 "Q": 0.707
+            },
+            {
+                "remove_freq": [
+                    0.1,
+                    1.0
+                ]
             }
         ],
         [
             "TimeShift_Det",
             {
                 "shift_len": 120
+            },
+            {
+                "shift_len": [
+                    1,
+                    200
+                ]
             }
         ],
         [
@@ -40,6 +73,16 @@
             {
                 "shift_len_min": 120,
                 "shift_len_max": 240
+            },
+            {
+                "shift_min": [
+                    0,
+                    100
+                ],
+                "shift_max": [
+                    100,
+                    239
+                ]
             }
         ]
     ]
