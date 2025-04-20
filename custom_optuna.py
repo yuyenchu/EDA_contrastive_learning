@@ -1,5 +1,6 @@
 from clearml.automation.optuna import OptimizerOptuna 
 from clearml.automation.job import ClearmlJob
+from collections import defaultdict
 from logging import getLogger
 from typing import (
     List,
@@ -36,7 +37,11 @@ class CustomOptimizerOptuna(OptimizerOptuna):
             else:
                 name = "{}: {}".format(self._base_task_name, " ".join(param_str))
             comment = "\n".join(param_str)
-            augment_cfg = [(k,v) for k,v in parameter_override.items()]
+            augment_cfg = defaultdict(dict)
+            for k,v in parameter_override.items():
+                aug_name, param_name, *_ = k.split('/')
+                augment_cfg[aug_name][param_name] = v
+            augment_cfg = [(k,v) for k,v in augment_cfg.items()]
             configuration_overrides = {
                 'aug_cfg': {
                     'unlabeled_aug': {
