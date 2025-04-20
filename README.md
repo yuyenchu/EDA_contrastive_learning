@@ -32,12 +32,12 @@ pip install clearml
     2. Unzip dataset to folder
     3. Run script
         ```
-        python preprocessing.py -p PATH_TO_DATASET_FOLDER
+        python preprocessing.py -p PATH_TO_RAW_DATASET_FOLDER -d OUTPUT_DATASET_FOLDER 
         ```
 - Training
     1. Run script
         ```
-        python main.py -d PATH_TO_DATASET_FOLDER -e EPOCHS -b BATCH_SIZE
+        python main.py -d PATH_TO_PROCESSED_DATASET_FOLDER -e EPOCHS -b BATCH_SIZE
         ```
 - Hyper parameter search (with *clearml* and *optuna*):
     1. Install `clearml` and `optuna`
