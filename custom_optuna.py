@@ -1,5 +1,6 @@
 from clearml.automation.optuna import OptimizerOptuna 
 from clearml.automation.job import ClearmlJob
+from logging import getLogger
 from typing import (
     List,
     Set,
@@ -13,6 +14,8 @@ from typing import (
     Dict,
     Any,
 )
+
+logger = getLogger("clearml.automation.optimization")
 
 class CustomOptimizerOptuna(OptimizerOptuna):
     def helper_create_job(
