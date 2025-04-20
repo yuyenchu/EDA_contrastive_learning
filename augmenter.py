@@ -1,15 +1,15 @@
 import copy
 import inspect
-import tensorflow as tf
-import neurokit2 as nk
-import numpy as np
-import scipy
+if __name__!='__main__':
+    import tensorflow as tf
+    import neurokit2 as nk
+    import numpy as np
+    import scipy
 
-from functools import lru_cache
-from sys import exit
-from scipy.fft import fft, ifft
-from scipy.signal import iirnotch, iirpeak, filtfilt
-from scipy.interpolate import CubicSpline
+    # from functools import lru_cache
+    from scipy.fft import fft, ifft
+    from scipy.signal import iirnotch, iirpeak, filtfilt
+    from scipy.interpolate import CubicSpline
 
 AUGMENTERS_DICT = {}
 AUGMENTERS_PARAMS = {}
@@ -51,30 +51,10 @@ class DataAugmenter():
                 x = tf.reshape(x, shape)
         return x
 
-@aug_export('LowPassFilter_Det')
-class LowPassFilterDeterministic():
-    hp = {
-        'highcut_hz': (0.05, 0.1)
-    }
-    def __init__(self, data_freq=4, highcut_hz=0.05):
-        """
-        Apply low pass filter to remove frequency bands >= highcut_hz
-        :param data_freq: frequency of data to apply filter to (e.g., 4Hz for EDA)
-        :param highcut_hz: lower bound on frequency bands to remove
-        """
-        self.data_freq = data_freq
-        self.highcut_hz = highcut_hz
-        self.b, self.a = scipy.signal.butter(4, [highcut_hz], btype="lowpass", output="ba", fs=data_freq)
-
-    def __call__(self, x, *args):
-        # print(x.shape)
-        segment_filtered = scipy.signal.filtfilt(self.b, self.a, x, axis=0)
-        return segment_filtered.astype(np.float32)
-
 @aug_export('GaussianNoise_Det')
 class GaussianNoiseDeterministic:
     hp = {
-        'sigma_scale': (0, 1.5)
+        'sigma_scale': (0.0, 1.2)
     }
     def __init__(self, sigma_scale=0.1):
         """
@@ -117,6 +97,26 @@ class GaussianNoiseStochastic:
         noise = np.random.normal(scale=noise_sigma, size=x.shape)
         return (x + noise).astype(np.float32)
 
+@aug_export('LowPassFilter_Det')
+class LowPassFilterDeterministic():
+    hp = {
+        'highcut_hz': (0.05, 0.1)
+    }
+    def __init__(self, data_freq=4, highcut_hz=0.05):
+        """
+        Apply low pass filter to remove frequency bands >= highcut_hz
+        :param data_freq: frequency of data to apply filter to (e.g., 4Hz for EDA)
+        :param highcut_hz: lower bound on frequency bands to remove
+        """
+        self.data_freq = data_freq
+        self.highcut_hz = highcut_hz
+        self.b, self.a = scipy.signal.butter(4, [highcut_hz], btype="lowpass", output="ba", fs=data_freq)
+
+    def __call__(self, x, *args):
+        # print(x.shape)
+        segment_filtered = scipy.signal.filtfilt(self.b, self.a, x, axis=0)
+        return segment_filtered.astype(np.float32)
+
 @aug_export('BandstopFilter_Det')
 class BandstopFilterDeterministic:
     hp = {
@@ -143,11 +143,11 @@ class BandstopFilterDeterministic:
 @aug_export('TimeShift_Det')
 class TimeShiftDeterministic:
     hp = {
-        'shift_len': (1,200)
+        'shift_len': (1, 200)
     }
     """ Shifts the window left or right by a number of samples """
     def __init__(self, shift_len=120):
-        self.shift_len = shift_len
+        self.shift_len = int(shift_len)
 
     def __call__(self, x, left_buffer, right_buffer):
         # print(x.shape, left_buffer.shape, right_buffer.shape)
@@ -168,13 +168,13 @@ class TimeShiftDeterministic:
 @aug_export('TimeShift_Sto')
 class TimeShiftStochastic:
     hp = {
-        'shift_min': (0,100),
-        'shift_max': (100,239)
+        'shift_min': (0, 100),
+        'shift_max': (100, 239)
     }
     """ Shifts the window left or right by a number of samples """
     def __init__(self, shift_len_min=120, shift_len_max=240):
-        self.shift_min = shift_len_min
-        self.shift_max = shift_len_max
+        self.shift_min = int(shift_len_min)
+        self.shift_max = int(shift_len_max)
         self.shift_lens = np.arange(self.shift_min, self.shift_max, 1)
 
     def __call__(self, x, left_buffer, right_buffer):
@@ -193,6 +193,219 @@ class TimeShiftStochastic:
         start_index = l_len + shift
         x_trf = signal[start_index:start_index+len(x)]
         return x_trf.astype(np.float32)
+
+@aug_export('HighFreqNoise_Det')
+class HighFrequencyNoiseDeterministic:
+    hp = {
+        'sigma_scale': (0.0, 1.0),
+        # 'freq_bin_start_idx': (),
+        # 'freq_bin_stop_idx': ()
+    }
+    def __init__(self, sigma_scale=0.1, freq_bin_start_idx=60, freq_bin_stop_idx=120):
+        self.sigma_scale = sigma_scale
+        self.freq_bin_start_idx = freq_bin_start_idx
+        self.req_bin_stop_idx = freq_bin_stop_idx
+        self.freq_bin_idxs = np.arange(freq_bin_start_idx, freq_bin_stop_idx)
+
+    def __call__(self, x, left_buffer, right_buffer):
+        x_fft = fft(x)
+        mean_fft_val = np.mean(np.abs(x_fft))
+        sigma = self.sigma_scale * mean_fft_val
+        noise = np.random.normal(scale=sigma, size=len(self.freq_bin_idxs))
+        x_fft[self.freq_bin_idxs] += noise
+        # get the corresponding negative bins
+        neg_end_idx = len(x) + 1 - self.freq_bin_start_idx
+        neg_start_idx = neg_end_idx - len(self.freq_bin_idxs)
+        x_fft[neg_start_idx:neg_end_idx] += np.flip(noise)
+        x_ifft = np.abs(ifft(x_fft))
+        return x_ifft.astype(np.float32)
+
+@aug_export('LooseSensorArtifact_Det')
+class LooseSensorArtifactDeterministic:
+    hp = {
+        'width': (4, 20)
+    }
+    def __init__(self, width=4, smooth_width_min=2, smooth_width_max=80):
+        self.width = int(width)
+        self.smooth_width_min = smooth_width_min
+        self.smooth_width_max = smooth_width_max
+
+    def __call__(self, x, left_buffer, right_buffer):
+        # sample width of artifact
+        artifact_width = self.width
+        # sample artifact start
+        artifact_start = np.random.choice(np.arange(0, len(x) - artifact_width + 1))
+        # compute artifact end (inclusive)
+        artifact_end = artifact_start + artifact_width - 1
+        
+        # don't smooth if artifact goes all the way to boundary
+        smooth_left = (artifact_start != 0)
+        smooth_right = (artifact_end != len(x) - 1)
+        
+        # sample smoothing edge widths
+        smooth_max = min(self.smooth_width_max, int(artifact_width/2))
+        smooth_width1 = np.random.choice(np.arange(self.smooth_width_min, smooth_max + 1)) if smooth_left else 0
+        smooth_width2 = np.random.choice(np.arange(self.smooth_width_min, smooth_max + 1)) if smooth_right else 0
+        
+        # add drop to non-smoothed regions of artifact
+        noisy_segment = copy.deepcopy(x)
+        drop_start = artifact_start + smooth_width1
+        drop_end = artifact_end - smooth_width2  # (inclusive)
+        # get mean amplitude of signal in this range
+        mean_amp = np.mean(noisy_segment[drop_start:drop_end + 1])  # +1 so inclusive
+        # subtract from signal
+        noisy_segment[drop_start:drop_end + 1] -= mean_amp
+        # zero out negative entries
+        noisy_segment[noisy_segment < 0] = 0
+        
+        # fill in parts to be smoothed
+        # fit cubic spline
+        # get pre-smooth, unsmoothed artifact, post-smooth
+        train_x = np.concatenate([
+            np.arange(artifact_start),  # don't include artifact start
+            np.arange(drop_start, drop_end + 1),  # include drop end
+            np.arange(artifact_end + 1, len(x)) # don't include artifact end
+        ])
+        train_y = np.concatenate([
+            noisy_segment[:artifact_start],
+            noisy_segment[drop_start:drop_end + 1],
+            noisy_segment[artifact_end + 1:]
+        ])
+        spline = CubicSpline(train_x, train_y)
+        # fill in smoothed parts
+        if artifact_start != drop_start:
+            noisy_segment[artifact_start:drop_start] = spline(np.arange(artifact_start, drop_start))
+        if artifact_end != drop_end:
+            noisy_segment[drop_end + 1:artifact_end + 1] = spline(np.arange(drop_end + 1, artifact_end + 1))  # include artifact end
+        return noisy_segment.astype(np.float32)
+
+@aug_export('JumpArtifact_Det')
+class JumpArtifactDeterministic:
+    hp = {
+        'max_n_jumps': (2, 5),
+        'shift_factor': (0.1, 1.0)
+    }
+    def __init__(self, max_n_jumps=2, shift_factor=0.1, smooth_width_min=2, smooth_width_max=12):
+        self.max_n_jumps = int(max_n_jumps)
+        self.shift_factor = shift_factor
+        self.smooth_width_min = smooth_width_min
+        self.smooth_width_max = smooth_width_max
+
+    def __call__(self, x, left_buffer, right_buffer):
+        noisy_segment = x.copy()
+        
+        # time flip so we can apply the logic below in either direction
+        time_flip = np.random.choice([-1, 1]) 
+        if time_flip == -1:
+            noisy_segment = np.flip(noisy_segment)
+        
+        # sample n artifacts
+        n_jumps = np.random.choice(np.arange(1, self.max_n_jumps + 1)) # make inclusive
+        
+        # sample artifact starts and shift factors
+        min_start = 1 # don't start at 0 because this would shift whole segment instead of creating jump
+        # needs to start early enough that there is enough room to smooth jump (with smallest smoothing window)
+        max_start = len(x) - self.smooth_width_min - 2 
+        artifact_starts = np.sort(np.random.choice(np.arange(min_start, max_start + 1), size=n_jumps, replace=False))
+        artifact_shift_factors = self.shift_factor * np.random.choice([-1, 1], size=n_jumps)
+        
+        # loop through & apply shifts
+        for idx, a_start in enumerate(artifact_starts):
+            # sample smoothing window (how many samples to smooth)
+            # smooth window needs to fit in between a_start and end of x with at least a one sample gap
+            _smooth_max = min(self.smooth_width_max, len(x) - a_start - 2)
+            a_smooth_win = np.random.choice(np.arange(self.smooth_width_min, _smooth_max + 1)) # make inclusive
+            x_post_smooth = noisy_segment[a_start + a_smooth_win:]
+            # add jump to x_post_smooth, scale it by width of smooth window (want to control jump/sec)
+            x_post_smooth += artifact_shift_factors[idx] * (a_smooth_win / 4)  # get smooth win in secs
+            
+            # fill in parts to be smoothed
+            # fit cubic spline
+            # get pre-smooth, unsmoothed artifact, post-smooth
+            train_x = np.concatenate([
+                np.arange(a_start),  # everywhere but where smoothing occurs
+                np.arange(a_start + a_smooth_win, len(x))
+            ])
+            train_y = np.concatenate([
+                noisy_segment[:a_start],
+                noisy_segment[a_start + a_smooth_win:],
+            ])
+            spline = CubicSpline(train_x, train_y)
+            # fill in smoothed parts
+            noisy_segment[a_start:a_start + a_smooth_win] = spline(np.arange(a_start, a_start + a_smooth_win))
+            
+            # zero out negative entries
+            noisy_segment[noisy_segment < 0] = 0
+            
+        # Flip the segment back to original time order if it was reversed
+        if time_flip == -1:
+            noisy_segment = np.flip(noisy_segment)
+        
+        return noisy_segment.astype(np.float32)
+    
+@aug_export('Permute_Det')
+class PermuteDeterministic:
+    hp = {
+        'n_splits': (2, 20)
+    }
+    """ Splits segments into chunks and permutes them """
+    def __init__(self, n_splits=10):
+        self.n_splits = int(n_splits)
+
+    def __call__(self, x, left_buffer, right_buffer):
+        orig_steps = np.arange(x.shape[0])
+        splits = np.array_split(orig_steps, self.n_splits)
+        np.random.shuffle(splits)
+        warp_idx = np.concatenate(splits)
+        x_warped = x[warp_idx]
+        return x_warped.astype(np.float32)
+
+@aug_export('ConstantAmplitudeScale_Det')
+class ConstantAmplitudeScalingDeterministic:
+    hp = {
+        'scale': (0.1, 2.0)
+    }
+    """ Scale EDA by constant factor across the window """
+    def __init__(self, scale=1):
+        self.scale = scale
+
+    def __call__(self, x, left_buffer, right_buffer):
+        return (x * self.scale).astype(np.float32)
+
+@aug_export('Flip')
+class Flip:
+    hp = {}
+    """ Flips segments around horizontal axis """
+    def __init__(self):
+        pass
+
+    def __call__(self, x, left_buffer, right_buffer):
+        flip = -1
+        x_flip = flip * x + (2 * np.mean(x))
+        return x_flip.astype(np.float32)
+
+class ExtractComponent:
+    hp = {}
+    def __init__(self, component, method="highpass"):
+        self.component = component
+        self.method = method
+
+    def __call__(self, x, left_buffer, right_buffer):
+        # print("method", self.method)
+        decomposed = nk.eda_phasic(x, sampling_rate=4, method=self.method)
+        return decomposed[f"EDA_{self.component}"].to_numpy().astype(np.float32)
+
+@aug_export('ExtractPhasic')
+class ExtractPhasic(ExtractComponent):
+    def __init__(self, method="highpass"):
+        print("init extract phasic")
+        super().__init__("Phasic", method)
+
+@aug_export('ExtractTonic')
+class ExtractTonic(ExtractComponent):
+    def __init__(self, method="highpass"):
+        print("init extract tonic")
+        super().__init__("Tonic", method)
 
 if __name__=='__main__':
     import json

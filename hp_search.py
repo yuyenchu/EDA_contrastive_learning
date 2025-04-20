@@ -9,7 +9,12 @@ from custom_optuna import CustomOptimizerOptuna
 def get_aug_hp(aug_cfg, aug_name):
     for aug, defaults, hps in aug_cfg['augment_cfg']:
         if (aug==aug_name):
-            return [UniformParameterRange(f'{aug}/{k}', v[0], v[1]) for k, v in hps.items()]
+            return [
+                UniformIntegerParameterRange(f'{aug}/{k}', v[0], v[1]) 
+                if isinstance(v[0], int) and isinstance(v[1], int) else
+                UniformParameterRange(f'{aug}/{k}', v[0], v[1])
+                for k, v in hps.items()
+            ]
     raise ValueError(f'Cannot find aug in augment_params.json: {aug_name}')
 
 def job_complete_callback(
@@ -31,7 +36,7 @@ if __name__=='__main__':
                  reuse_last_task_id=True)
     configs = {
         'template_task_id': '4ba322b84e444d70abe9ecb6808ab9d3',
-        'aug_target': ['GaussianNoise_Det', 'GaussianNoise_Det'],
+        'aug_target': ['GaussianNoise_Det'],
         'k': 3
     }
     configs = task.connect(configs)

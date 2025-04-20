@@ -59,11 +59,11 @@ pip install clearml
         @aug_export('NewAugment_Key')
         class NewAugment:
             hp = {
-                'param_1': (min_float_1, max_float_1),
+                'param_1': (min_int_1, max_int_1),
                 'param_2': (min_float_2, max_float_2),
             }
             ...
-            def __init(self, param_1=default_float_1, param_2=default_float_2):
+            def __init(self, param_1=default_int_1, param_2=default_float_2):
                 ...
             
             def __call__(self, x, left_buffer, right_buffer):

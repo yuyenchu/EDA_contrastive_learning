@@ -1,27 +1,14 @@
 {
     "augment_cfg": [
         [
-            "LowPassFilter_Det",
-            {
-                "data_freq": 4,
-                "highcut_hz": 0.05
-            },
-            {
-                "highcut_hz": [
-                    0.05,
-                    0.1
-                ]
-            }
-        ],
-        [
             "GaussianNoise_Det",
             {
                 "sigma_scale": 0.1
             },
             {
                 "sigma_scale": [
-                    0,
-                    1.5
+                    0.0,
+                    1.2
                 ]
             }
         ],
@@ -39,6 +26,19 @@
                 "sigma_scale_max": [
                     0.5,
                     1.5
+                ]
+            }
+        ],
+        [
+            "LowPassFilter_Det",
+            {
+                "data_freq": 4,
+                "highcut_hz": 0.05
+            },
+            {
+                "highcut_hz": [
+                    0.05,
+                    0.1
                 ]
             }
         ],
@@ -84,6 +84,96 @@
                     239
                 ]
             }
+        ],
+        [
+            "HighFreqNoise_Det",
+            {
+                "sigma_scale": 0.1,
+                "freq_bin_start_idx": 60,
+                "freq_bin_stop_idx": 120
+            },
+            {
+                "sigma_scale": [
+                    0.0,
+                    1.0
+                ]
+            }
+        ],
+        [
+            "LooseSensorArtifact_Det",
+            {
+                "width": 4,
+                "smooth_width_min": 2,
+                "smooth_width_max": 80
+            },
+            {
+                "width": [
+                    4,
+                    20
+                ]
+            }
+        ],
+        [
+            "JumpArtifact_Det",
+            {
+                "max_n_jumps": 2,
+                "shift_factor": 0.1,
+                "smooth_width_min": 2,
+                "smooth_width_max": 12
+            },
+            {
+                "max_n_jumps": [
+                    2,
+                    5
+                ],
+                "shift_factor": [
+                    0.1,
+                    1.0
+                ]
+            }
+        ],
+        [
+            "Permute_Det",
+            {
+                "n_splits": 10
+            },
+            {
+                "n_splits": [
+                    2,
+                    20
+                ]
+            }
+        ],
+        [
+            "ConstantAmplitudeScale_Det",
+            {
+                "scale": 1
+            },
+            {
+                "scale": [
+                    0.1,
+                    2.0
+                ]
+            }
+        ],
+        [
+            "Flip",
+            {},
+            {}
+        ],
+        [
+            "ExtractPhasic",
+            {
+                "method": "highpass"
+            },
+            {}
+        ],
+        [
+            "ExtractTonic",
+            {
+                "method": "highpass"
+            },
+            {}
         ]
     ]
 }
