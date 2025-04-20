@@ -9,6 +9,7 @@ from os import path
 from tqdm import tqdm
 from tensorflow import keras
 from sklearn.metrics import (
+    ConfusionMatrixDisplay,
     confusion_matrix,
     precision_score,
     recall_score,
@@ -21,7 +22,7 @@ from model import ContrastiveModel
 from utils import get_dataset, GarbageCollectionCallback, PrintMemoryCallback
 from augmenter import DataAugmenter
 
-USE_CLEARML = False
+USE_CLEARML = True
 print('tensorflow ==', tf.__version__)
 print(tf.config.list_physical_devices())
 
@@ -73,19 +74,39 @@ if __name__=='__main__':
             print('cannot load weight from:', pretrain_path)
 
     ckpt_path = './model_ckpt.weights.h5'
-    callbacks = []
-    # callbacks.append(PrintMemoryCallback(672))
-    callbacks.append(GarbageCollectionCallback())
-    callbacks.append(keras.callbacks.TensorBoard(log_dir = './logs',
-                                                    histogram_freq = 1,
-                                                    profile_batch = '200,220'))
-    callbacks.append(keras.callbacks.ModelCheckpoint(filepath=ckpt_path,
-                                                    monitor='val_p_acc',
-                                                    mode='max',
-                                                    save_weights_only=True,
-                                                    save_best_only=True,
-                                                    initial_value_threshold=0.0,
-                                                    verbose=1))
+    callbacks = [
+        # PrintMemoryCallback(672),
+        GarbageCollectionCallback(),
+        keras.callbacks.TensorBoard(log_dir = './logs',
+                                    histogram_freq = 1,
+                                    profile_batch = '200,220')
+    ]
+    pretrain_callbacks = [
+        keras.callbacks.ModelCheckpoint(filepath=ckpt_path,
+                                        monitor='c_loss',
+                                        mode='min',
+                                        save_weights_only=True,
+                                        save_best_only=True,
+                                        initial_value_threshold=1e5,
+                                        verbose=1),
+        keras.callbacks.EarlyStopping(monitor='c_loss', 
+                                      mode='min', 
+                                      patience=10, 
+                                      verbose=1)
+    ]
+    prediction_callbacks = [
+        keras.callbacks.ModelCheckpoint(filepath=ckpt_path,
+                                        monitor='val_p_acc',
+                                        mode='max',
+                                        save_weights_only=True,
+                                        save_best_only=True,
+                                        initial_value_threshold=0.0,
+                                        verbose=1),
+        keras.callbacks.EarlyStopping(monitor='val_p_acc', 
+                                      mode='max', 
+                                      patience=10, 
+                                      verbose=1)
+    ]
 
     # Contrastive pretraining
     print('='*20, 'training start' , '='*20)
@@ -96,15 +117,19 @@ if __name__=='__main__':
         train_mode='contrastive',
     )
     model.fit(
-        unlabeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks
+        unlabeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks+pretrain_callbacks
     )
+    print('\n===> reload best pretrain')
+    model.load_weights(ckpt_path)
+    model.evaluate(test_ds)
+    print()
 
     model.compile(
         optimizer=keras.optimizers.AdamW(args.lr),
         train_mode='prediction',
     )
     history = model.fit(
-        labeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks
+        labeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks+prediction_callbacks
     )
 
     print(
@@ -143,4 +168,15 @@ if __name__=='__main__':
     print('roc_auc:', auc)
 
     if (USE_CLEARML):
-        task.upload_artifact('checkpoint', ckpt_path)
+        ConfusionMatrixDisplay(cm, display_labels=['False', 'True'])\
+                            .plot(cmap='Blues')\
+                            .figure_\
+                            .savefig('confusion_matrix.jpg', dpi=150)
+        logger.report_image('confusion matrix', 'best', local_path='confusion_matrix.jpg')
+        logger.report_single_value('precision', p)
+        logger.report_single_value('recall', r)
+        logger.report_single_value('accuracy', acc)
+        logger.report_single_value('f1', f1)
+        logger.report_single_value('roc_auc', auc)
+        task.upload_artifact('checkpoint', ckpt_path, wait_on_upload=True)
+        task.close()
