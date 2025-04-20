@@ -37,7 +37,7 @@ pip install clearml
 - Training
     1. Run script
         ```
-        python main.py
+        python main.py -d PATH_TO_DATASET_FOLDER -e EPOCHS -b BATCH_SIZE
         ```
 - Hyper parameter search (with *clearml* and *optuna*):
     1. Install `clearml` and `optuna`
@@ -50,8 +50,8 @@ pip install clearml
     1. Go to `augmenter.py` and start editing
     2. Implement your new augment class, following these rules:
         - It needs to have `__init__` and `__call__` functions implemented with numpy operations only. 
-        - The params for `__init__` should all have default values.
-        - The function `__call__` should take in 3 params `x`, `left_buffer`, `right_buffer` for eda data of shape (N,1) where N is the number of points per sample. 
+        - The parameters for `__init__` should all have default values.
+        - The function `__call__` should take in 3 parameters `x`, `left_buffer`, `right_buffer` each for eda data of shape (N,1) where N is the number of points per sample. 
         - Use the `@aug_export` dcorator to register your class. The name passed to the decorator will be used as key to access your class in `augment.json`.
         - To enable hyper parameter search for your class, make sure to add `hp` variable to the class.
     3. Your new class should be in following format
