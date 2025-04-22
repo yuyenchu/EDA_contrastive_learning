@@ -82,7 +82,8 @@ if __name__=='__main__':
         print('Rank {}: task id={} |result={}'
             .format(n, t.id, t.get_last_scalar_metrics()['epoch_p_acc']['epoch_p_acc']['max']))
         t.add_tags(f'Rank_{n}')
-        cloned = Task.clone(t.id, project='EDA_contrastive')
+        cloned = Task.clone(t.id)
+        cloned.move_to_project(new_project_name='EDA_contrastive')
         cloned.add_tags(['hp_search_result', f'hp:{task.id}'])
         # cloned.set_parameter('Args/epochs', 400, value_type=int)
         # Task.enqueue(cloned, queue_name='default')
