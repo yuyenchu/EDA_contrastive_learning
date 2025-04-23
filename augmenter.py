@@ -198,26 +198,45 @@ class TimeShiftStochastic:
 class HighFrequencyNoiseDeterministic:
     hp = {
         'sigma_scale': (0.0, 1.0),
-        # 'freq_bin_start_idx': (),
-        # 'freq_bin_stop_idx': ()
     }
+
     def __init__(self, sigma_scale=0.1, freq_bin_start_idx=60, freq_bin_stop_idx=120):
         self.sigma_scale = sigma_scale
         self.freq_bin_start_idx = freq_bin_start_idx
-        self.req_bin_stop_idx = freq_bin_stop_idx
+        self.freq_bin_stop_idx = freq_bin_stop_idx  # fixed typo: was 'req_bin_stop_idx'
         self.freq_bin_idxs = np.arange(freq_bin_start_idx, freq_bin_stop_idx)
 
     def __call__(self, x, left_buffer, right_buffer):
+        x = np.squeeze(x)
+        
+        # Compute FFT
         x_fft = fft(x)
+        
+        x_fft_real = np.real(x_fft).reshape(-1)
+        x_fft_imag = np.imag(x_fft).reshape(-1)
+        
+        # Compute noise scale
         mean_fft_val = np.mean(np.abs(x_fft))
         sigma = self.sigma_scale * mean_fft_val
-        noise = np.random.normal(scale=sigma, size=len(self.freq_bin_idxs))
-        x_fft[self.freq_bin_idxs] += noise
-        # get the corresponding negative bins
+        
+        # Generate 1D complex noise
+        noise_real = np.random.normal(scale=sigma, size=len(self.freq_bin_idxs))
+        noise_imag = np.random.normal(scale=sigma, size=len(self.freq_bin_idxs))
+
+        # Add noise to positive frequencies
+        x_fft_real[self.freq_bin_idxs] += noise_real
+        x_fft_imag[self.freq_bin_idxs] += noise_imag
+
+        # Add noise to negative frequencies (conjugate symmetry)
         neg_end_idx = len(x) + 1 - self.freq_bin_start_idx
         neg_start_idx = neg_end_idx - len(self.freq_bin_idxs)
-        x_fft[neg_start_idx:neg_end_idx] += np.flip(noise)
-        x_ifft = np.abs(ifft(x_fft))
+        x_fft_real[neg_start_idx:neg_end_idx] += noise_real
+        x_fft_imag[neg_start_idx:neg_end_idx] -= noise_imag
+
+        # Recombine and inverse FFT
+        x_fft_noised = x_fft_real + 1j * x_fft_imag}")
+        
+        x_ifft = np.abs(ifft(x_fft_noised))
         return x_ifft.astype(np.float32)
 
 @aug_export('LooseSensorArtifact_Det')
