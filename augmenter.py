@@ -234,7 +234,7 @@ class HighFrequencyNoiseDeterministic:
         x_fft_imag[neg_start_idx:neg_end_idx] -= noise_imag
 
         # Recombine and inverse FFT
-        x_fft_noised = x_fft_real + 1j * x_fft_imag}")
+        x_fft_noised = x_fft_real + 1j * x_fft_imag
         
         x_ifft = np.abs(ifft(x_fft_noised))
         return x_ifft.astype(np.float32)
