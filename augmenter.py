@@ -411,8 +411,9 @@ class ExtractComponent:
 
     def __call__(self, x, left_buffer, right_buffer):
         # print("method", self.method)
+        x = np.squeeze(x, -1)
         decomposed = nk.eda_phasic(x, sampling_rate=4, method=self.method)
-        return decomposed[f"EDA_{self.component}"].to_numpy().astype(np.float32)
+        return np.expand_dims(decomposed[f"EDA_{self.component}"].to_numpy().astype(np.float32), -1)
 
 @aug_export('ExtractPhasic')
 class ExtractPhasic(ExtractComponent):
