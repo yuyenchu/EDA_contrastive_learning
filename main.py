@@ -34,6 +34,7 @@ def get_parser():
     parser.add_argument('-e', '--epoch',    help='training epochs',             type=int, default=30)
     parser.add_argument('-l', '--lr',       help='training learning rate',      type=float, default=0.001)
     parser.add_argument('-t', '--temp',     help='contrastive loss temperature',type=float, default=1.0)
+    parser.add_argument('--baseline',       help='train baseline supervised model', action='store_true')
     return parser
 
 if __name__=='__main__':
@@ -111,26 +112,34 @@ if __name__=='__main__':
     # Contrastive pretraining
     print('='*20, 'training start' , '='*20)
     model = ContrastiveModel(args.temp)
+    if (args.baseline):
+        model.compile(
+            optimizer=keras.optimizers.AdamW(args.lr),
+            train_mode='baseline',
+        )
+        history = model.fit(
+            labeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks+prediction_callbacks
+        )
+    else:
+        model.compile(
+            optimizer=keras.optimizers.AdamW(args.lr),
+            train_mode='contrastive',
+        )
+        model.fit(
+            unlabeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks+pretrain_callbacks
+        )
+        print('\n===> reload best pretrain')
+        model.load_weights(ckpt_path)
+        model.evaluate(test_ds)
+        print()
 
-    model.compile(
-        optimizer=keras.optimizers.AdamW(args.lr),
-        train_mode='contrastive',
-    )
-    model.fit(
-        unlabeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks+pretrain_callbacks
-    )
-    print('\n===> reload best pretrain')
-    model.load_weights(ckpt_path)
-    model.evaluate(test_ds)
-    print()
-
-    model.compile(
-        optimizer=keras.optimizers.AdamW(args.lr),
-        train_mode='prediction',
-    )
-    history = model.fit(
-        labeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks+prediction_callbacks
-    )
+        model.compile(
+            optimizer=keras.optimizers.AdamW(args.lr),
+            train_mode='prediction',
+        )
+        history = model.fit(
+            labeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks+prediction_callbacks
+        )
 
     print(
         'Best validation accuracy: {:.2f}%, loss {:.3f}'.format(

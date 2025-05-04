@@ -1,11 +1,8 @@
 import tensorflow as tf
 from tensorflow import keras
-# from tensorflow.keras import ops
-# from keras import saving
 
 from utils import build_encoder, build_projection_head, build_classification_head
 
-# @saving.register_keras_serializable()
 class ContrastiveModel(keras.Model):
     def __init__(self, temperature=0.1, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -30,7 +27,7 @@ class ContrastiveModel(keras.Model):
     def compile(self, optimizer, train_mode, **kwargs):
         super().compile(**kwargs)
 
-        assert train_mode in ('contrastive', 'prediction')
+        assert train_mode in ('contrastive', 'prediction', 'baseline')
         self.train_mode = train_mode
         self.optimizer = optimizer
 
@@ -109,6 +106,27 @@ class ContrastiveModel(keras.Model):
             gradients = tape.gradient(probe_loss, self.linear_probe.trainable_weights)
             self.optimizer.apply_gradients(
                 zip(gradients, self.linear_probe.trainable_weights)
+            )
+            self.probe_loss_tracker.update_state(probe_loss)
+            self.probe_accuracy.update_state(labels, class_logits)
+            return {m.name: m.result() for m in self.metrics[-2:]}
+        elif (self.train_mode == 'baseline'):
+            eda, labels = data
+            with tf.GradientTape() as tape:
+                # the encoder is used in inference mode here to avoid regularization
+                # and updating the batch normalization paramers if they are used
+                features = self.encoder(eda, training=True)
+                class_logits = self.linear_probe(features, training=True)
+                probe_loss = self.probe_loss(labels, class_logits)
+            gradients = tape.gradient(
+                probe_loss, 
+                self.encoder.trainable_weights + self.linear_probe.trainable_weights
+            )
+            self.optimizer.apply_gradients(
+                zip(
+                    gradients, 
+                    self.encoder.trainable_weights + self.linear_probe.trainable_weights
+                )
             )
             self.probe_loss_tracker.update_state(probe_loss)
             self.probe_accuracy.update_state(labels, class_logits)
