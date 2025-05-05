@@ -34,7 +34,8 @@ def get_parser():
     parser.add_argument('-e', '--epoch',    help='training epochs',             type=int, default=30)
     parser.add_argument('-l', '--lr',       help='training learning rate',      type=float, default=0.001)
     parser.add_argument('-t', '--temp',     help='contrastive loss temperature',type=float, default=1.0)
-    parser.add_argument('--baseline',       help='train baseline supervised model', action='store_true')
+    parser.add_argument('--baseline',       help='train baseline supervised model'   , action='store_true')
+    parser.add_argument('--random_encoder', help='train baseline with random encoder', action='store_true')
     return parser
 
 if __name__=='__main__':
@@ -115,7 +116,7 @@ if __name__=='__main__':
     if (args.baseline):
         model.compile(
             optimizer=keras.optimizers.AdamW(args.lr),
-            train_mode='baseline',
+            train_mode='prediction' if args.random_encoder else'baseline',
         )
         history = model.fit(
             labeled_train_ds, epochs=args.epoch, validation_data=test_ds, callbacks=callbacks+prediction_callbacks
