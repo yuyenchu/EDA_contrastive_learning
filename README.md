@@ -74,3 +74,28 @@ pip install clearml
         ```
         python augmenter.py
         ```
+## Experiment results
+Values are selected from the experiment with highest accuracy and rounded to 4 decimals, with standard deviations of the top 3 experiments shown in parentheses. Augmentations labeled N/A do not have tunable parameters.
+### Hyperparameter search
+| **Augment Function** | **Parameter**       | **Best value** | **Accuracy**                | **F1 Score**               |
+|-------------------------|--------------------------|---------------------|----------------------------------|---------------------------------|
+| GaussianNoise_Det      | sigma_scale             | 1.0454 (0.0215)     | 0.8305 (0.0046)                  | 0.7685 (0.0126)                 |
+| LowPassFilter_Det      | highcut_hz              | 0.093 (0.0087)      | 0.8049 (0.012)                   | 0.7175 (0.0177)                 |
+| BandstopFilter_Det     | remove_freq             | 0.8421 (0.3448)     | 0.8191 (0.004)                   | 0.7605 (0.0106)                 |
+| TimeShift_Det          | shift_len               | 11 (116.923)        | 0.8244 (0.0066)                  | 0.7387 (0.005)                  |
+| HighFreqNoise_Det      | sigma_scale             | 0.4904 (0.2406)     | 0.8232 (0.0031)                  | 0.7529 (0.0047)                 |
+| JumpArtifact_Det       | <p>max_n_jumps <p>shift_factor | <p>3 (0) <p>0.7229 (0.142) | 0.8233 (0.0227) | 0.738 (0.0382) |
+| Permute_Det            | n_splits                | 4 (0.5773)          | 0.8057 (0.0026)                  | 0.7275 (0.0119)                 |
+| ExtractPhasic           | N/A | N/A | 0.6678 (0.0079)     | 0.1511 (0.0605)                  |
+| ExtractTonic            | N/A | N/A | 0.7678 (0.009)      | 0.6915 (0.0298)                  |
+| Flip                    | N/A | N/A |0.7558 (0.0105)     | 0.6827 (0.0376)                  |
+
+### Models
+| **Model**              | **Accuracy** | **Precision** | **Recall** | **F1 Score** | **ROC AUC** |
+|---------------------------|-------------------|--------------------|-----------------|-------------------|------------------|
+| Supervised(No aug)        | 0.8136 (0.0116)   | 0.7098 (0.0123)    | 0.7936 (0.0289) | 0.7493 (0.0185)   | 0.8390 (0.0029)  |
+| Supervised(Top 1 aug)     | 0.8147 (0.0032)   | 0.7473 (0.0149)    | 0.7170 (0.0394) | 0.7802 (0.0113)   | 0.8692 (0.0018)  |
+| Random Encoder(No aug)    | 0.6488 (0)        | 0 (0)              | 0 (0)           | 0 (0)             | 0.5 (0)          |
+| Random Encoder(Top 1 aug) | 0.6488 (0)        | 0 (0)              | 0 (0)           | 0 (0)             | 0.5 (0)          |
+| Contrastive(Top 1 aug)    | 0.8305 (0.0031)   | 0.7384 (0.0142)    | 0.8011 (0.0231) | 0.7685 (0.0051)   | 0.9104 (0.0075)  |
+| Contrastive(Top 2 aug)    | 0.8369 (0.0019)   | 0.7734 (0.0248)    | 0.7549 (0.0455) | 0.7929 (0.0101)   | 0.915 (0.0046)   |
